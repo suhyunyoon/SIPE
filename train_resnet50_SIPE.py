@@ -75,6 +75,8 @@ def train():
     parser.add_argument("--val_freq", default=500, type=int)
     parser.add_argument("--dataset", default="voc", type=str)
     parser.add_argument("--dataset_root", default="../PascalVOC2012/VOCdevkit/VOC2012", type=str)
+    parser.add_argument('--train_list', default='data/trainaug_voc.txt', type=str)
+    parser.add_argument('--val_list', default='data/train_voc.txt', type=str)
     parser.add_argument("--seed", default=15, type=int)
     args = parser.parse_args()
 
@@ -82,7 +84,7 @@ def train():
     os.makedirs(args.session_name, exist_ok=True)
     os.makedirs(os.path.join(args.session_name, 'runs'), exist_ok=True)
     os.makedirs(os.path.join(args.session_name, 'ckpt'), exist_ok=True)
-    pyutils.Logger(os.path.join(args.session_name, args.session_name + '.log'))
+    pyutils.Logger(os.path.join(args.session_name + '.log'))
     tblogger = SummaryWriter(os.path.join(args.session_name, 'runs'))
 
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
@@ -90,14 +92,14 @@ def train():
     if args.dataset == 'voc':
         dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
         model = getattr(importlib.import_module(args.network), 'Net')(num_cls=21)
-        train_dataset = data_voc.VOC12ClsDataset('data/trainaug_' + args.dataset + '.txt', voc12_root=dataset_root,
+        train_dataset = data_voc.VOC12ClsDataset(args.train_list, voc12_root=dataset_root,
                                                                     resize_long=(320, 640), hor_flip=True,
                                                                     crop_size=512, crop_method="random")
         train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                                     shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
         max_step = (len(train_dataset) // args.batch_size) * args.max_epoches
 
-        val_dataset = data_voc.VOC12ClsDataset('data/train_' + args.dataset + '.txt', voc12_root=dataset_root)
+        val_dataset = data_voc.VOC12ClsDataset(args.val_list, voc12_root=dataset_root)
         val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
     elif args.dataset == 'coco':
@@ -105,14 +107,14 @@ def train():
         args.val_freq = 99999
         dataset_root = args.dataset_root #'../ms_coco_14&15/images'
         model = getattr(importlib.import_module(args.network), 'Net')(num_cls=81)
-        train_dataset = data_coco.COCOClsDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root,
+        train_dataset = data_coco.COCOClsDataset(args.train_list, coco_root=dataset_root,
                                                                 resize_long=(320, 640), hor_flip=True,
                                                                 crop_size=512, crop_method="random")
         train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                                     shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
         max_step = (len(train_dataset) // args.batch_size) * args.max_epoches
 
-        val_dataset = data_coco.COCOClsDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root)
+        val_dataset = data_coco.COCOClsDataset(args.val_list, coco_root=dataset_root)
         val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
     param_groups = model.trainable_parameters()

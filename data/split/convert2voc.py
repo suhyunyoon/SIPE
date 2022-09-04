@@ -15,3 +15,4 @@ if __name__ == '__main__':
             with open(l, 'w') as f:
                 data = [formatter(d) for d in data_list]
                 f.write('\n'.join(data))
+            print('File', l, 'Converted.')
