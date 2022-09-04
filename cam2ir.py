@@ -49,6 +49,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="voc", type=str)
+    parser.add_argument("--dataset_root", default="../PascalVOC2012/VOCdevkit/VOC2012", type=str)
     parser.add_argument("--num_workers", default=os.cpu_count()//2, type=int)
     parser.add_argument("--session_name", default='exp', type=str)
     args = parser.parse_args()
@@ -56,11 +57,11 @@ if __name__ == '__main__':
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
 
     if args.dataset == 'voc':
-        dataset_root = '../PascalVOC2012/VOCdevkit/VOC2012'
-        dataset = data_voc.VOC12ImageDataset('data/train_' + args.dataset + '.txt', voc12_root=dataset_root, img_normal=None, to_torch=False)
+        dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
+        dataset = data_voc.VOC12ImageDataset('data/trainaug_' + args.dataset + '.txt', voc12_root=dataset_root, img_normal=None, to_torch=False)
 
     elif args.dataset == 'coco':
-        dataset_root = "../../dataset/ms_coco_14&15/images"
+        dataset_root = args.dataset_root #"../../dataset/ms_coco_14&15/images"
         dataset = data_coco.COCOImageDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root, img_normal=None, to_torch=False)
 
     dataset = torchutils.split_dataset(dataset, args.num_workers)

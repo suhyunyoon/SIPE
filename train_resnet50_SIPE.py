@@ -13,9 +13,9 @@ from chainercv.evaluations import calc_semantic_segmentation_confusion
 from tool import pyutils, torchutils, visualization, imutils
 import random
 
-def validate(model, data_loader):
+def validate(args, model, data_loader):
 
-    gt_dataset = VOCSemanticSegmentationDataset(split='train', data_dir="../PascalVOC2012/VOCdevkit/VOC2012")
+    gt_dataset = VOCSemanticSegmentationDataset(split='train', data_dir=args.dataset_root) #"../PascalVOC2012/VOCdevkit/VOC2012")
     labels = [gt_dataset.get_example_by_keys(i, (1,))[0] for i in range(len(gt_dataset))]
 
     print('validating ... ', flush=True, end='')
@@ -88,7 +88,7 @@ def train():
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
 
     if args.dataset == 'voc':
-        dataset_root = '../PascalVOC2012/VOCdevkit/VOC2012'
+        dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
         model = getattr(importlib.import_module(args.network), 'Net')(num_cls=21)
         train_dataset = data_voc.VOC12ClsDataset('data/trainaug_' + args.dataset + '.txt', voc12_root=dataset_root,
                                                                     resize_long=(320, 640), hor_flip=True,
@@ -103,7 +103,7 @@ def train():
     elif args.dataset == 'coco':
         args.tf_freq = 99999
         args.val_freq = 99999
-        dataset_root = '../ms_coco_14&15/images'
+        dataset_root = args.dataset_root #'../ms_coco_14&15/images'
         model = getattr(importlib.import_module(args.network), 'Net')(num_cls=81)
         train_dataset = data_coco.COCOClsDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root,
                                                                 resize_long=(320, 640), hor_flip=True,
@@ -187,7 +187,7 @@ def train():
                 tblogger.add_images('IS_CAM', IS_CAM, optimizer.global_step)
 
             if (optimizer.global_step-1) % args.val_freq == 0 and optimizer.global_step > 10:
-                miou = validate(model, val_data_loader)
+                miou = validate(args, model, val_data_loader)
                 torch.save({'net':model.module.state_dict()}, os.path.join(args.session_name, 'ckpt', 'iter_' + str(optimizer.global_step) + '.pth'))
                 if miou > bestiou:
                     bestiou = miou

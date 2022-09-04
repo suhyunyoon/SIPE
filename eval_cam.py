@@ -37,6 +37,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="voc", type=str)
+    parser.add_argument("--dataset_root", default="../PascalVOC2012/VOCdevkit/VOC2012", type=str)
     parser.add_argument("--gt_path", default='../PascalVOC2012/VOCdevkit/VOC2012/SegmentationClass', type=str)
     parser.add_argument('--session_name', default="exp", type=str)
     args = parser.parse_args()
@@ -44,13 +45,13 @@ if __name__ == '__main__':
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
 
     if args.dataset == 'voc':
-        dataset_root = '../PascalVOC2012/VOCdevkit/VOC2012'
+        dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
         num_cls = 21
         dataset = data_voc.VOC12ImageDataset('data/train_' + args.dataset + '.txt', voc12_root=dataset_root, img_normal=None, to_torch=False)
 
     elif args.dataset == 'coco':
-        args.gt_path = "../ms_coco_14&15/SegmentationClass/train2014/"
-        dataset_root = "../ms_coco_14&15/images"
+        # args.gt_path = "../ms_coco_14&15/SegmentationClass/train2014/"
+        dataset_root = args.dataset_root #"../ms_coco_14&15/images"
         num_cls = 81
         dataset = data_coco.COCOImageDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root, img_normal=None, to_torch=False)
 

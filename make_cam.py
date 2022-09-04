@@ -81,6 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("--session_name", default="exp", type=str)
     parser.add_argument("--ckpt", default="final.pth", type=str)
     parser.add_argument("--visualize", default=True, type=bool)
+    parser.add_argument("--dataset_root", default="../PascalVOC2012/VOCdevkit/VOC2012", type=str)
     parser.add_argument("--dataset", default="voc", type=str)
 
     args = parser.parse_args()
@@ -93,12 +94,12 @@ if __name__ == '__main__':
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
 
     if args.dataset == 'voc':
-        dataset_root = '../PascalVOC2012/VOCdevkit/VOC2012'
+        dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
         model = getattr(importlib.import_module(args.network), 'CAM')(num_cls=21)
-        dataset = data_voc.VOC12ClsDatasetMSF('data/train_' + args.dataset + '.txt', voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        dataset = data_voc.VOC12ClsDatasetMSF('data/trainaug_' + args.dataset + '.txt', voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
 
     elif args.dataset == 'coco':
-        dataset_root = "../ms_coco_14&15/images"
+        dataset_root = args.dataset_root #"../ms_coco_14&15/images"
         model = getattr(importlib.import_module(args.network), 'CAM')(num_cls=81)
         dataset = data_coco.COCOClsDatasetMSF('data/train_' + args.dataset + '.txt', coco_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
 
