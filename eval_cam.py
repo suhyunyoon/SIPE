@@ -56,5 +56,5 @@ if __name__ == '__main__':
         dataset = data_coco.COCOImageDataset('data/train_' + args.dataset + '.txt', coco_root=dataset_root, img_normal=None, to_torch=False)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True, drop_last=True)
-    pyutils.Logger(os.path.join(args.session_name + '_eval.log'))
+    pyutils.Logger(os.path.join(args.session_name, 'eval.log'))
     run(args, args.session_name + "/npy", num_cls)

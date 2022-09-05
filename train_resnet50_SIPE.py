@@ -84,7 +84,7 @@ def train():
     os.makedirs(args.session_name, exist_ok=True)
     os.makedirs(os.path.join(args.session_name, 'runs'), exist_ok=True)
     os.makedirs(os.path.join(args.session_name, 'ckpt'), exist_ok=True)
-    pyutils.Logger(os.path.join(args.session_name + '.log'))
+    pyutils.Logger(os.path.join(args.session_name, 'train.log'))
     tblogger = SummaryWriter(os.path.join(args.session_name, 'runs'))
 
     assert args.dataset in ['voc', 'coco'], 'Dataset must be voc or coco in this project.'
