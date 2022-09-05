@@ -35,42 +35,55 @@ def draw_heatmap(norm_cam, gt_label, orig_img, save_path, img_name):
         imageio.imsave(cam_viz_path, heatmap)
 
 
-def _work(process_id, model, dataset, args):
+def _work(process_id, model, dataset, dataset_ulb, args):
     databin = dataset[process_id]
     n_gpus = torch.cuda.device_count()
+    # Batch size = 1
     data_loader = DataLoader(databin, shuffle=False, num_workers=args.num_workers // n_gpus, pin_memory=False)
+    
+    if dataset_ulb is not None: ###
+        databin_ulb = dataset_ulb[process_id]
+        data_loader_ulb = DataLoader(databin_ulb, shuffle=False, num_workers=args.num_workers // n_gpus, pin_memory=False)
 
     with torch.no_grad(), cuda.device(process_id):
 
         model.cuda()
 
-        for iter, pack in enumerate(data_loader):
-            img_name = pack['name'][0]
-            label = pack['label'][0]
-            size = pack['size']
-            label = F.pad(label, (1, 0), 'constant', 1.0)
+        def save_cams(databin, data_loader, unlabeled=False):
+            for iter, pack in enumerate(data_loader):
+                img_name = pack['name'][0]
+                label = pack['label'][0]
+                # Removing label of Unlabled data
+                if unlabeled:
+                    label = torch.ones_like(label)
+                size = pack['size']
+                label = F.pad(label, (1, 0), 'constant', 1.0)
 
-            outputs = [model(img[0].cuda(non_blocking=True), label.cuda(non_blocking=True).unsqueeze(-1).unsqueeze(-1)) for img in pack['img']]
+                outputs = [model(img[0].cuda(non_blocking=True), label.cuda(non_blocking=True).unsqueeze(-1).unsqueeze(-1)) for img in pack['img']]
 
-            # multi-scale fusion
-            IS_CAM_list = [output[1].cpu() for output in outputs]
-            IS_CAM_list = [F.interpolate(torch.unsqueeze(o, 1), size, mode='bilinear', align_corners=False) for o in IS_CAM_list]
-            IS_CAM = torch.sum(torch.stack(IS_CAM_list, 0), 0)[:,0]
-            IS_CAM /= F.adaptive_max_pool2d(IS_CAM, (1, 1)) + 1e-5
-            IS_CAM = IS_CAM.cpu().numpy()
+                # multi-scale fusion
+                IS_CAM_list = [output[1].cpu() for output in outputs]
+                IS_CAM_list = [F.interpolate(torch.unsqueeze(o, 1), size, mode='bilinear', align_corners=False) for o in IS_CAM_list]
+                IS_CAM = torch.sum(torch.stack(IS_CAM_list, 0), 0)[:,0]
+                IS_CAM /= F.adaptive_max_pool2d(IS_CAM, (1, 1)) + 1e-5
+                IS_CAM = IS_CAM.cpu().numpy()
 
-            # visualize IS-CAM
-            if args.visualize:
-                orig_img = np.array(Image.open(pack['img_path'][0]).convert('RGB'))
-                draw_heatmap(IS_CAM.copy(), label, orig_img, os.path.join(args.session_name, 'visual'), img_name)
+                # visualize IS-CAM
+                if args.visualize:
+                    orig_img = np.array(Image.open(pack['img_path'][0]).convert('RGB'))
+                    draw_heatmap(IS_CAM.copy(), label, orig_img, os.path.join(args.session_name, 'visual'), img_name)
 
-            # save IS_CAM
-            valid_cat = torch.nonzero(label)[:, 0].cpu().numpy()
-            IS_CAM = IS_CAM[valid_cat]
-            np.save(os.path.join(args.session_name, 'npy', img_name + '.npy'),  {"keys": valid_cat, "IS_CAM": IS_CAM})
+                # save IS_CAM
+                valid_cat = torch.nonzero(label)[:, 0].cpu().numpy()
+                IS_CAM = IS_CAM[valid_cat]
+                np.save(os.path.join(args.session_name, 'npy', img_name + '.npy'),  {"keys": valid_cat, "IS_CAM": IS_CAM})
 
-            if process_id == n_gpus - 1 and iter % (len(databin) // 20) == 0:
-                print("%d " % ((5*iter+1)//(len(databin) // 20)), end='')
+                if process_id == n_gpus - 1 and iter % (len(databin) // 20) == 0:
+                    print("%d " % ((5*iter+1)//(len(databin) // 20)), end='')
+
+        save_cams(databin, data_loader)
+        if dataset_ulb is not None: ###
+            save_cams(databin_ulb, data_loader_ulb, unlabeled=True)
 
 
 if __name__ == '__main__':
@@ -83,6 +96,8 @@ if __name__ == '__main__':
     parser.add_argument("--visualize", default=True, type=bool)
     parser.add_argument("--dataset_root", default="../PascalVOC2012/VOCdevkit/VOC2012", type=str)
     parser.add_argument("--dataset", default="voc", type=str)
+    parser.add_argument("--lb_list", default=None, type=str) ###
+    parser.add_argument("--ulb_list", default=None, type=str) ###
 
     args = parser.parse_args()
 
@@ -96,12 +111,27 @@ if __name__ == '__main__':
     if args.dataset == 'voc':
         dataset_root = args.dataset_root #'../PascalVOC2012/VOCdevkit/VOC2012'
         model = getattr(importlib.import_module(args.network), 'CAM')(num_cls=21)
-        dataset = data_voc.VOC12ClsDatasetMSF('data/trainaug_' + args.dataset + '.txt', voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        if args.lb_list is None:
+            dataset = data_voc.VOC12ClsDatasetMSF('data/train_' + args.dataset + '.txt', voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        else:
+            dataset = data_voc.VOC12ClsDatasetMSF(args.lb_list, voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        if args.ulb_list is not None:
+            dataset_ulb = data_voc.VOC12ClsDatasetMSF(args.ulb_list, voc12_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        else:
+            dataset_ulb = None
 
     elif args.dataset == 'coco':
         dataset_root = args.dataset_root #"../ms_coco_14&15/images"
         model = getattr(importlib.import_module(args.network), 'CAM')(num_cls=81)
-        dataset = data_coco.COCOClsDatasetMSF('data/train_' + args.dataset + '.txt', coco_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        
+        if args.lb_list is None:
+            dataset = data_coco.COCOClsDatasetMSF('data/train_' + args.dataset + '.txt', coco_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        else:
+            dataset = data_coco.COCOClsDatasetMSF(args.lb_list, coco_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        if args.ulb_list is not None:
+            dataset_ulb = data_coco.COCOClsDatasetMSF(args.ulb_list, coco_root=dataset_root, scales=(1.0, 0.5, 1.5, 2.0))
+        else:
+            dataset_ulb = None
 
     checkpoint = torch.load(args.session_name + '/ckpt/' + args.ckpt)
     model.load_state_dict(checkpoint['net'], strict=True)
@@ -110,9 +140,11 @@ if __name__ == '__main__':
     n_gpus = torch.cuda.device_count()
 
     dataset = torchutils.split_dataset(dataset, n_gpus)
+    if dataset_ulb is not None: ###
+        dataset_ulb = torchutils.split_dataset(dataset_ulb, n_gpus)
 
     print('[ ', end='') 
-    multiprocessing.spawn(_work, nprocs=n_gpus, args=(model, dataset, args), join=True)
+    multiprocessing.spawn(_work, nprocs=n_gpus, args=(model, dataset, dataset_ulb, args), join=True)
     print(']')
 
     torch.cuda.empty_cache()
