@@ -152,3 +152,15 @@ class CAM(Net):
 
 
         return norm_cam[0], IS_cam[0]
+
+    def get_featnscore(self, x):
+        
+        x0 = self.stage0(x)
+        x1 = self.stage1(x0)
+        x2 = self.stage2(x1).detach()
+        x3 = self.stage3(x2)
+        x4 = self.stage4(x3)
+
+        cam = self.classifier(x4)
+        score = F.adaptive_avg_pool2d(cam, 1)
+        return x4, score.sum(dim=0).view(-1)

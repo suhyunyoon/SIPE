@@ -55,7 +55,10 @@ def _work(process_id, model, dataset, dataset_ulb, args):
                 label = pack['label'][0]
                 # Removing label of Unlabled data
                 if unlabeled:
-                    label = torch.ones_like(label)
+                    # label = torch.ones_like(label) # all pred(low performance)
+                    # hard label prediction
+                    scores = [model.get_featnscore(img[0].cuda(non_blocking=True))[1] for img in pack['img']]
+                    label = (torch.sigmoid(sum(scores)) >= 0.5).float().detach().cpu()
                 size = pack['size']
                 label = F.pad(label, (1, 0), 'constant', 1.0)
 
